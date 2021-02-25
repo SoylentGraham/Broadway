@@ -2,11 +2,11 @@ var LibraryBroadway = {
   broadwayOnHeadersDecoded: function () {
     par_broadwayOnHeadersDecoded();
   },
-  broadwayOnPictureDecoded: function ($buffer, width, height) {
-    par_broadwayOnPictureDecoded($buffer, width, height);
+  broadwayOnPictureDecoded: function ($buffer, width, height, framenumber) {
+    par_broadwayOnPictureDecoded($buffer, width, height, framenumber);
   },
-  extern_emit_image: function($buffer, width, height, $otherBuffer){
-    par_broadwayOnPictureDecoded($buffer, width, height, $otherBuffer);
+  extern_emit_image: function($buffer, width, height, framenumber, $otherBuffer){
+    par_broadwayOnPictureDecoded($buffer, width, height, framenumber, $otherBuffer);
   }
 };
 

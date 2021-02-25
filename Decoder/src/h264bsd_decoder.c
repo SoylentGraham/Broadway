@@ -61,7 +61,7 @@
 
 #ifdef EMIT_IMAGE_ASAP
 u32 sliceData[18] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-extern void extern_emit_image(u8 *buffer, u32 width, u32 height, u32* sliceData);
+extern void extern_emit_image(u8 *buffer, u32 width, u32 height, u32 framenumber, u32* sliceData);
 #endif     
 
 

@@ -65,19 +65,14 @@
     var toU8Array;
     var toU32Array;
     
-    var onPicFun = function ($buffer, width, height) {
+    var onPicFun = function ($buffer, width, height framenumber) {
       var buffer = this.pictureBuffers[$buffer];
       if (!buffer) {
         buffer = this.pictureBuffers[$buffer] = toU8Array($buffer, (width * height * 3) / 2);
       };
       
-      var infos;
-      var doInfo = false;
-      if (this.infoAr.length){
-        doInfo = true;
-        infos = this.infoAr;
-      };
-      this.infoAr = [];
+      let Meta = this.FrameMetas[framenumber] || {};
+      Meta.finishDecoding = nowValue();
       
       if (this.options.rgb){
         if (!asmInstance){
@@ -89,25 +84,18 @@
         var copyU8 = new Uint8Array(asmInstance.outSize);
         copyU8.set( asmInstance.out );
         
-        if (doInfo){
-          infos[0].finishDecoding = nowValue();
-        };
-        
-        this.onPictureDecoded(copyU8, width, height, infos);
+        this.onPictureDecoded(copyU8, width, height, Meta);
         return;
         
       };
       
-      if (doInfo){
-        infos[0].finishDecoding = nowValue();
-      };
-      this.onPictureDecoded(buffer, width, height, infos);
+      this.onPictureDecoded(buffer, width, height, Meta);
     }.bind(this);
     
     var ignore = false;
     
     if (this.options.sliceMode){
-      onPicFun = function ($buffer, width, height, $sliceInfo) {
+      onPicFun = function ($buffer, width, height, framenumber $sliceInfo) {
         if (ignore){
           return;
         };
@@ -120,13 +108,7 @@
           sliceInfo = this.pictureBuffers[$sliceInfo] = toU32Array($sliceInfo, 18);
         };
 
-        var infos;
-        var doInfo = false;
-        if (this.infoAr.length){
-          doInfo = true;
-          infos = this.infoAr;
-        };
-        this.infoAr = [];
+		let Meta = this.FrameMetas[framenumber] || {};
 
         /*if (this.options.rgb){
         
@@ -134,14 +116,14 @@
 
         };*/
 
-        infos[0].finishDecoding = nowValue();
+        Meta.finishDecoding = nowValue();
         var sliceInfoAr = [];
         for (var i = 0; i < 20; ++i){
           sliceInfoAr.push(sliceInfo[i]);
         };
-        infos[0].sliceInfoAr = sliceInfoAr;
+        Meta.sliceInfoAr = sliceInfoAr;
 
-        this.onPictureDecoded(buffer, width, height, infos);
+        this.onPictureDecoded(buffer, width, height, Meta);
       }.bind(this);
     };
     
@@ -152,11 +134,15 @@
     var MAX_STREAM_BUFFER_LENGTH = 1024 * 1024;
     
     var instance = this;
-    this.onPictureDecoded = function (buffer, width, height, infos) {
-
+    this.onPictureDecoded = function (buffer, width, height, Meta) 
+    {
+		//	not overloaded
     };
     
-    this.onDecoderReady = function(){};
+    this.onDecoderReady = function()
+    {
+    	//	not overloaded
+	};
     
     var bufferedCalls = [];
     this.decode = function decode(typedAr, parInfo, copyDoneFun) {
@@ -738,36 +724,36 @@
             sliceNum = e.data.options.sliceNum;
             setSliceCnt(e.data.options.sliceCnt);
 
-            decoder.onPictureDecoded = function (buffer, width, height, infos) {
+            decoder.onPictureDecoded = function (buffer, width, height, Meta) {
               
               // buffer needs to be copied because we give up ownership
               var copyU8 = new Uint8Array(getMem(buffer.length));
-              copySlice(buffer, copyU8, infos[0].sliceInfoAr, width, height);
+              copySlice(buffer, copyU8, Meta.sliceInfoAr, width, height);
               
-              startDecoding = infos[0].startDecoding;
-              finishDecoding = infos[0].finishDecoding;
+              startDecoding = Meta.startDecoding;
+              finishDecoding = Meta.finishDecoding;
               timeDecoding = finishDecoding - startDecoding;
-              infos[0].timeDecoding = timeDecoding;
-              infos[0].timeCopy = 0;
+              Meta.timeDecoding = timeDecoding;
+              Meta.timeCopy = 0;
               
               postMessage({
                 slice: copyU8.buffer,
                 sliceNum: sliceNum,
                 width: width, 
                 height: height, 
-                infos: infos
+                infos: Meta
               }, [copyU8.buffer]); // 2nd parameter is used to indicate transfer of ownership
               
               awaiting = sliceCnt - 1;
               
               lastBuf = buffer;
-              sliceInfoAr = infos[0].sliceInfoAr;
+              sliceInfoAr = Meta.sliceInfoAr;
 
             };
             
           }else if (e.data.options.reuseMemory){
             reuseMemory = true;
-            decoder.onPictureDecoded = function (buffer, width, height, infos) {
+            decoder.onPictureDecoded = function (buffer, width, height, Meta) {
               
               // buffer needs to be copied because we give up ownership
               var copyU8 = new Uint8Array(getMem(buffer.length));
@@ -778,13 +764,13 @@
                 length: buffer.length,
                 width: width, 
                 height: height, 
-                infos: infos
+                infos: Meta
               }, [copyU8.buffer]); // 2nd parameter is used to indicate transfer of ownership
 
             };
             
           }else{
-            decoder.onPictureDecoded = function (buffer, width, height, infos) {
+            decoder.onPictureDecoded = function (buffer, width, height, Meta) {
               if (buffer) {
                 buffer = new Uint8Array(buffer);
               };
@@ -798,7 +784,7 @@
                 length: buffer.length,
                 width: width, 
                 height: height, 
-                infos: infos
+                infos: Meta
               }, [copyU8.buffer]); // 2nd parameter is used to indicate transfer of ownership
 
             };

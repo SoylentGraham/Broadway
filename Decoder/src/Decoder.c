@@ -12,7 +12,7 @@
 #include "extraFlags.h"
 
 u32 broadwayInit();
-u32 broadwayDecode();
+u32 broadwayDecode(u32);
 void broadwayExit();
 
 const size_t STREAM_BUFFER_SIZE = 1024 * 1024;
@@ -24,8 +24,6 @@ H264SwDecOutput decOutput;
 H264SwDecPicture decPicture;
 H264SwDecInfo decInfo;
 
-u32 picDecodeNumber;
-u32 picDisplayNumber;
 u32 picSize;
 
 typedef struct {
@@ -41,13 +39,14 @@ void streamInit(Stream *stream, u32 length) {
     stream->end = stream->buffer + length;
 }
 
-void playStream(Stream *stream) {
+void playStream(Stream *stream) 
+{
     decInput.pStream = stream->buffer;
     decInput.dataLen = stream->length;
-    u32 i = 0;
+    u32 PacketNumber = 0;
     do {
         u8 *start = decInput.pStream;
-        u32 ret = broadwayDecode();
+        u32 ret = broadwayDecode(PacketNumber);
         // printf("Decoded Unit #%d, Size: %d, Result: %d\n", i++, (decInput.pStream - start), ret);
     } while (decInput.dataLen > 0);
 }
@@ -87,18 +86,17 @@ u32 broadwayInit() {
     return -1;
   }
 
-  picDecodeNumber = picDisplayNumber = 1;
-
   return 0;
 }
 
 
 extern void broadwayOnHeadersDecoded();
 
-extern void broadwayOnPictureDecoded(u8 *buffer, u32 width, u32 height);
+extern void broadwayOnPictureDecoded(u8 *buffer, u32 width, u32 height,u32 framenumber);
 
-u32 broadwayDecode() {
-    decInput.picId = picDecodeNumber;
+u32 broadwayDecode(u32 FrameNumber) 
+{
+    decInput.picId = FrameNumber;
 
     H264SwDecRet ret = H264SwDecDecode(decInst, &decInput, &decOutput);
 
@@ -133,18 +131,14 @@ u32 broadwayDecode() {
                 decInput.dataLen = 0;
             //}
 
-            /* Increment decoding number for every decoded picture */
-            picDecodeNumber++;
-      
 
             while (H264SwDecNextPicture(decInst, &decPicture, 0) == H264SWDEC_PIC_RDY) {
                 // printf(" Decoded Picture Decode: %d, Display: %d, Type: %s\n", picDecodeNumber, picDisplayNumber, decPicture.isIdrPicture ? "IDR" : "NON-IDR");
 
-                /* Increment display number for every displayed picture */
-                picDisplayNumber++;
+                u32 OutputFrameNumber = decPicture.picId;
 
 #ifndef EMIT_IMAGE_ASAP
-                broadwayOnPictureDecoded((u8*)decPicture.pOutputPicture, decInfo.picWidth, decInfo.picHeight);
+                broadwayOnPictureDecoded((u8*)decPicture.pOutputPicture, decInfo.picWidth, decInfo.picHeight, OutputFrameNumber );
 #endif
             }
             break;

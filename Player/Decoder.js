@@ -134,21 +134,20 @@ var Module=typeof Module!=="undefined"?Module:{};var moduleOverrides={};var key;
     var toU8Array;
     var toU32Array;
     
-    var onPicFun = function ($buffer, width, height) {
+    var onPicFun = function ($buffer, width, height, framenumber) {
       var buffer = this.pictureBuffers[$buffer];
       if (!buffer) {
         buffer = this.pictureBuffers[$buffer] = toU8Array($buffer, (width * height * 3) / 2);
       };
       
-      var infos;
-      var doInfo = false;
-      if (this.infoAr.length){
-        doInfo = true;
-        infos = this.infoAr;
-      };
-      this.infoAr = [];
+      //	gr: don't send all the buffered up meta! we end up 
+      let Meta = this.infoAr[framenumber] || {};
+      Meta.OutputFrameNumber = framenumber;	//	should be the same, but just in case, output it
+      Meta.Size = [width,height];
+      Meta.finishDecoding = nowValue();
       
-      if (this.options.rgb){
+      if (this.options.rgb)
+      {
         if (!asmInstance){
           asmInstance = getAsm(width, height);
         };
@@ -158,25 +157,18 @@ var Module=typeof Module!=="undefined"?Module:{};var moduleOverrides={};var key;
         var copyU8 = new Uint8Array(asmInstance.outSize);
         copyU8.set( asmInstance.out );
         
-        if (doInfo){
-          infos[0].finishDecoding = nowValue();
-        };
-        
-        this.onPictureDecoded(copyU8, width, height, infos);
+        this.onPictureDecoded(copyU8, width, height, Meta);
         return;
         
       };
-      
-      if (doInfo){
-        infos[0].finishDecoding = nowValue();
-      };
-      this.onPictureDecoded(buffer, width, height, infos);
+
+      this.onPictureDecoded(buffer, width, height, Meta);
     }.bind(this);
     
     var ignore = false;
     
     if (this.options.sliceMode){
-      onPicFun = function ($buffer, width, height, $sliceInfo) {
+      onPicFun = function ($buffer, width, height, framenumber, $sliceInfo) {
         if (ignore){
           return;
         };
@@ -189,13 +181,7 @@ var Module=typeof Module!=="undefined"?Module:{};var moduleOverrides={};var key;
           sliceInfo = this.pictureBuffers[$sliceInfo] = toU32Array($sliceInfo, 18);
         };
 
-        var infos;
-        var doInfo = false;
-        if (this.infoAr.length){
-          doInfo = true;
-          infos = this.infoAr;
-        };
-        this.infoAr = [];
+		let Meta = this.infoAr[framenumber] || {};
 
         /*if (this.options.rgb){
         
@@ -203,14 +189,14 @@ var Module=typeof Module!=="undefined"?Module:{};var moduleOverrides={};var key;
 
         };*/
 
-        infos[0].finishDecoding = nowValue();
+        Meta.finishDecoding = nowValue();
         var sliceInfoAr = [];
         for (var i = 0; i < 20; ++i){
           sliceInfoAr.push(sliceInfo[i]);
         };
-        infos[0].sliceInfoAr = sliceInfoAr;
+        Meta.sliceInfoAr = sliceInfoAr;
 
-        this.onPictureDecoded(buffer, width, height, infos);
+        this.onPictureDecoded(buffer, width, height, Meta );
       }.bind(this);
     };
     

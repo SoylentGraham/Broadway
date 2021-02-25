@@ -52,8 +52,17 @@
   };
   
   
-  var Decoder = function(parOptions){
+  //	gr: it seems like onDecoderReady is being called before thread drops out,
+  //		so it's not assigned before its called
+  var Decoder = function(parOptions,onDecoderReady)
+  {
+  	function onDecoderReadyDefault()
+  	{
+  		console.log(`onDecoderReadyDefault in module`);
+  	}
     this.options = parOptions || {};
+    
+    this.onDecoderReady = onDecoderReady ||onDecoderReadyDefault;
     
     this.now = nowValue;
     
@@ -138,13 +147,9 @@
     this.onPictureDecoded = function (buffer, width, height, Meta) 
     {
 		//	not overloaded
+    	console.log(`onPictureDecoded. (not overloaded in decoder)`);
     };
-    
-    this.onDecoderReady = function()
-    {
-    	//	not overloaded
-	};
-    
+        
     var bufferedCalls = [];
     this.decode = function decode(typedAr, parInfo, copyDoneFun) {
       bufferedCalls.push([typedAr, parInfo, copyDoneFun]);
@@ -728,7 +733,16 @@
       }else{
         if (e.data && e.data.type === "Broadway.js - Worker init"){
           isWorker = true;
-          decoder = new Decoder(e.data.options);
+          
+          function OnWorkerDecoderReady()
+          {
+          	console.log(`OnWorkerDecoderReady()`);
+          	postMessage({
+                onDecoderReady: true
+              });
+          }
+          
+          decoder = new Decoder( e.data.options, OnWorkerDecoderReady );
           
           if (e.data.options.sliceMode){
             reuseMemory = true;

@@ -276,7 +276,7 @@
 			Meta = Meta || {};
 			let FrameNumber = instance.FrameNumber++;
 			Meta.startDecoding = nowValue();
-			console.info(`Decoding frame ${FrameNumber} x${typedAr.length} bytes`);
+			//console.info(`Decoding frame ${FrameNumber} x${typedAr.length} bytes`);
 
 			//	store meta for later retrieval
 			instance.FrameMetas[FrameNumber] = Meta;

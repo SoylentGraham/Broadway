@@ -170,7 +170,8 @@
       instance.streamBuffer = toU8Array(Module._broadwayCreateStream(MAX_STREAM_BUFFER_LENGTH), MAX_STREAM_BUFFER_LENGTH);
       instance.pictureBuffers = {};
       // collect extra infos that are provided with the nal units
-      instance.infoAr = [];
+      instance.FrameNumber = 0;
+      instance.FrameMetas = {};	//	[FrameNumber] = input meta
 
       /**
      * Decodes a stream buffer. This may be one single (unframed) NAL unit without the
@@ -178,11 +179,13 @@
      * function overwrites stream buffer allocated by the codec with the supplied buffer.
      */
 
+		//	slice mode splits nalu's for us
       var sliceNum = 0;
       if (instance.options.sliceMode){
         sliceNum = instance.options.sliceNum;
 
         instance.decode = function decode(typedAr, parInfo, copyDoneFun) {
+        	//	now instance.FrameMetas[]
           instance.infoAr.push(parInfo);
           parInfo.startDecoding = nowValue();
           var nals = parInfo.nals;
@@ -249,25 +252,28 @@
               offset += 1;
               instance.streamBuffer.set(playAr, offset);
               offset += playAr.length;
-              Module._broadwayPlayStream(offset);
+              let FrameNumber = instance.FrameNumber++;
+              let Result = Module._broadwayPlayStream(offset,FrameNumber);
               offset = 0;
             };
           };
           copyDoneFun();
-          Module._broadwayPlayStream(offset);
+          let FrameNumber = instance.FrameNumber++;
+          let Result = Module._broadwayPlayStream(offset,FrameNumber);
         };
 
       }else{
-        instance.decode = function decode(typedAr, parInfo) {
-          // console.info("Decoding: " + buffer.length);
-          // collect infos
-          if (parInfo){
-            instance.infoAr.push(parInfo);
-            parInfo.startDecoding = nowValue();
-          };
+        instance.decode = function decode(typedAr, Meta)
+        {
+			Meta = Meta || {};
+			Meta.FrameNumber = instance.FrameNumber++;
+			Meta.startDecoding = nowValue();
+			console.info(`Decoding frame ${Meta.FrameNumber} x${buffer.length} bytes`);
 
-          instance.streamBuffer.set(typedAr);
-          Module._broadwayPlayStream(typedAr.length);
+			instance.streamBuffer.set(typedAr);
+			let Result = Module._broadwayPlayStream(typedAr.length,Meta.FrameNumber);
+			if ( !Result )
+				console.info(`Broadway decoder error`);
         };
       };
       

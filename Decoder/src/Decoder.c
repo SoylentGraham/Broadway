@@ -11,8 +11,10 @@
 
 #include "extraFlags.h"
 
+#include <stdbool.h>
+
 u32 broadwayInit();
-u32 broadwayDecode(u32);
+bool broadwayDecode(u32);
 void broadwayExit();
 
 const size_t STREAM_BUFFER_SIZE = 1024 * 1024;
@@ -39,16 +41,22 @@ void streamInit(Stream *stream, u32 length) {
     stream->end = stream->buffer + length;
 }
 
-void playStream(Stream *stream) 
+bool playStream(Stream *stream,u32 FrameNumber) 
 {
-    decInput.pStream = stream->buffer;
-    decInput.dataLen = stream->length;
-    u32 PacketNumber = 0;
-    do {
-        u8 *start = decInput.pStream;
-        u32 ret = broadwayDecode(PacketNumber);
-        // printf("Decoded Unit #%d, Size: %d, Result: %d\n", i++, (decInput.pStream - start), ret);
-    } while (decInput.dataLen > 0);
+	decInput.pStream = stream->buffer;
+	decInput.dataLen = stream->length;
+	do 
+	{
+		u8 *start = decInput.pStream;
+		//	gr: get error back out!
+		bool Result = broadwayDecode(FrameNumber);
+		if ( !Result )
+			return false;
+		// printf("Decoded Unit #%d, Size: %d, Result: %d\n", i++, (decInput.pStream - start), ret);
+	}
+	while (decInput.dataLen > 0);
+
+	return true;
 }
 
 
@@ -63,9 +71,10 @@ u8 *broadwayCreateStream(u32 length) {
 #endif
 
 
-void broadwayPlayStream(u32 length) {
-    broadwayStream.length = length;
-    playStream(&broadwayStream);
+bool broadwayPlayStream(u32 length,u32 FrameNumber)
+{
+	broadwayStream.length = length;
+	return playStream(&broadwayStream, FrameNumber );
 }
 
 
@@ -83,6 +92,7 @@ u32 broadwayInit() {
   if (ret != H264SWDEC_OK) {
     DEBUG(("DECODER INITIALIZATION FAILED\n"));
     broadwayExit();
+    
     return -1;
   }
 
@@ -94,7 +104,7 @@ extern void broadwayOnHeadersDecoded();
 
 extern void broadwayOnPictureDecoded(u8 *buffer, u32 width, u32 height,u32 framenumber);
 
-u32 broadwayDecode(u32 FrameNumber) 
+bool broadwayDecode(u32 FrameNumber) 
 {
     decInput.picId = FrameNumber;
 
@@ -105,7 +115,7 @@ u32 broadwayDecode(u32 FrameNumber)
             /* Stream headers were successfully decoded, thus stream information is available for query now. */
             ret = H264SwDecGetInfo(decInst, &decInfo);
             if (ret != H264SWDEC_OK) {
-                return -1;
+                return false;
             }
 
             picSize = decInfo.picWidth * decInfo.picHeight;
@@ -152,7 +162,7 @@ u32 broadwayDecode(u32 FrameNumber)
       default:
         break;
     }
-  return ret;
+  return true;
 }
 
 void broadwayExit() {

@@ -65,7 +65,7 @@
     var toU8Array;
     var toU32Array;
     
-    var onPicFun = function ($buffer, width, height framenumber) {
+    var onPicFun = function ($buffer, width, height, framenumber) {
       var buffer = this.pictureBuffers[$buffer];
       if (!buffer) {
         buffer = this.pictureBuffers[$buffer] = toU8Array($buffer, (width * height * 3) / 2);
@@ -73,6 +73,7 @@
       
       let Meta = this.FrameMetas[framenumber] || {};
       Meta.finishDecoding = nowValue();
+      Meta._InputDecodeFrameNumber = framenumber;	//	for debugging, store this
       
       if (this.options.rgb){
         if (!asmInstance){
@@ -95,7 +96,7 @@
     var ignore = false;
     
     if (this.options.sliceMode){
-      onPicFun = function ($buffer, width, height, framenumber $sliceInfo) {
+      onPicFun = function ($buffer, width, height, framenumber, $sliceInfo) {
         if (ignore){
           return;
         };
@@ -170,7 +171,9 @@
       instance.streamBuffer = toU8Array(Module._broadwayCreateStream(MAX_STREAM_BUFFER_LENGTH), MAX_STREAM_BUFFER_LENGTH);
       instance.pictureBuffers = {};
       // collect extra infos that are provided with the nal units
-      instance.FrameNumber = 0;
+      //	nalu meta should now be in FrameMeta, but this is more like "chunk meta"
+      //	nalu splitting perhaps should be outside the decoder
+      instance.FrameNumber = 0;	//	for debug purposes, it would be good to start this at an arbritry number like 9999
       instance.FrameMetas = {};	//	[FrameNumber] = input meta
 
       /**
@@ -266,12 +269,15 @@
         instance.decode = function decode(typedAr, Meta)
         {
 			Meta = Meta || {};
-			Meta.FrameNumber = instance.FrameNumber++;
+			let FrameNumber = instance.FrameNumber++;
 			Meta.startDecoding = nowValue();
-			console.info(`Decoding frame ${Meta.FrameNumber} x${buffer.length} bytes`);
+			console.info(`Decoding frame ${FrameNumber} x${typedAr.length} bytes`);
+
+			//	store meta for later retrieval
+			instance.FrameMetas[FrameNumber] = Meta;
 
 			instance.streamBuffer.set(typedAr);
-			let Result = Module._broadwayPlayStream(typedAr.length,Meta.FrameNumber);
+			let Result = Module._broadwayPlayStream(typedAr.length,FrameNumber);
 			if ( !Result )
 				console.info(`Broadway decoder error`);
         };

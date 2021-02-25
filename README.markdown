@@ -1,3 +1,10 @@
+SoylentGraham's Changes
+=============================
+- Input meta is now synchronised with output meta
+  - This does not apply to sliced data
+- Errors in decode loop no longer block with infinite loop
+- `Decode()` now returns error if there was a decode error.
+
 Broadway.js
 ===========
 A JavaScript H.264 decoder.

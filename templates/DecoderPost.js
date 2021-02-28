@@ -105,28 +105,26 @@
 
 		this.onPictureDecoded(buffer, width, height, Meta);
 	}.bind(this);
-    
-    var ignore = false;
-    
-    
-    
+
     var ModuleCallback = getModule.apply(fakeWindow, [function () {
     }, onPicFun]);
     
 
+	//	gr: matches STREAM_BUFFER_SIZE in Broadway/Decoder.c
     var MAX_STREAM_BUFFER_LENGTH = 1024 * 1024;
     
     var instance = this;
     this.onPictureDecoded = function (buffer, width, height, Meta) 
     {
-		//	not overloaded
     	console.log(`onPictureDecoded. (not overloaded in decoder)`);
     };
-        
-    var bufferedCalls = [];
-    this.decode = function decode(typedAr, parInfo, copyDoneFun) {
-      bufferedCalls.push([typedAr, parInfo, copyDoneFun]);
-    };
+
+	//	buffer up calls to decode() before it's implemented
+	var bufferedCalls = [];
+	this.decode = function decode(typedAr, parInfo, copyDoneFun) 
+	{
+		bufferedCalls.push( Array.from(arguments) );
+	};
     
     ModuleCallback(function(Module){
       var HEAP8 = Module.HEAP8;
@@ -192,134 +190,129 @@
 
   };
 
-  
-  Decoder.prototype = {
-    
-  };
-  
 
-  
-  /*
-    potential worker initialization
-  
-  */
-  
-  
-  if (typeof self != "undefined"){
-    var isWorker = false;
-    var decoder;
-    var reuseMemory = false;
-    
-    var memAr = [];
-    var getMem = function(length){
-      if (memAr.length){
-        var u = memAr.shift();
-        while (u && u.byteLength !== length){
-          u = memAr.shift();
-        };
-        if (u){
-          return u;
-        };
-      };
-      return new ArrayBuffer(length);
-    }; 
-    
+	Decoder.prototype = {
+	};
+
+
+
+	/*
+		potential worker initialization
+	*/
+	if (typeof self != "undefined")
+	{
+	var isWorker = false;
+	var decoder;
+	var reuseMemory = false;
+
+	var memAr = [];
+	var getMem = function(length){
+	  if (memAr.length){
+		var u = memAr.shift();
+		while (u && u.byteLength !== length){
+		  u = memAr.shift();
+		};
+		if (u){
+		  return u;
+		};
+	  };
+	  return new ArrayBuffer(length);
+	}; 
+
 	function OnWorkerMessage(e)
 	{
-      if (isWorker){
-        if (reuseMemory){
-          if (e.data.reuse){
-            memAr.push(e.data.reuse);
-          };
-        };
-        if (e.data.buf){
-          {
-            decoder.decode(
-              new Uint8Array(e.data.buf, e.data.offset || 0, e.data.length), 
-              e.data.info, 
-              function(){}
-            );
-          };
-          return;
-        };
-        
-       
-        
-      }
-      else
-      {
-        if (e.data && e.data.type === "Broadway.js - Worker init")
-        {
-          isWorker = true;
-          
-          function OnWorkerDecoderReady()
-          {
-          	console.log(`OnWorkerDecoderReady()`);
-          	postMessage({
-                onDecoderReady: true
-              });
-          }
-          
-          decoder = new Decoder( e.data.options, OnWorkerDecoderReady );
-          if (e.data.options.reuseMemory)
-          {
-            reuseMemory = true;
-            decoder.onPictureDecoded = function (buffer, width, height, Meta) {
-              
-              // buffer needs to be copied because we give up ownership
-              var copyU8 = new Uint8Array(getMem(buffer.length));
-              copyU8.set( buffer, 0, buffer.length );
+	  if (isWorker){
+		if (reuseMemory){
+		  if (e.data.reuse){
+			memAr.push(e.data.reuse);
+		  };
+		};
+		if (e.data.buf){
+		  {
+			decoder.decode(
+			  new Uint8Array(e.data.buf, e.data.offset || 0, e.data.length), 
+			  e.data.info, 
+			  function(){}
+			);
+		  };
+		  return;
+		};
+	}
+	else
+	{
+		if (e.data && e.data.type === "Broadway.js - Worker init")
+		{
+		  isWorker = true;
+		  
+		  function OnWorkerDecoderReady()
+		  {
+			console.log(`OnWorkerDecoderReady()`);
+			postMessage({
+				onDecoderReady: true
+			  });
+		  }
+		  
+		  decoder = new Decoder( e.data.options, OnWorkerDecoderReady );
+		  if (e.data.options.reuseMemory)
+		  {
+			reuseMemory = true;
+			decoder.onPictureDecoded = function (buffer, width, height, Meta) 
+			{
+			  
+			  // buffer needs to be copied because we give up ownership
+			  var copyU8 = new Uint8Array(getMem(buffer.length));
+			  copyU8.set( buffer, 0, buffer.length );
 
-              postMessage({
-                buf: copyU8.buffer, 
-                length: buffer.length,
-                width: width, 
-                height: height, 
-                infos: Meta
-              }, [copyU8.buffer]); // 2nd parameter is used to indicate transfer of ownership
+			  postMessage({
+				buf: copyU8.buffer, 
+				length: buffer.length,
+				width: width, 
+				height: height, 
+				infos: Meta
+			  }, [copyU8.buffer]); // 2nd parameter is used to indicate transfer of ownership
 
-            };
-            
-          }
-          else
-          {
-            decoder.onPictureDecoded = function (buffer, width, height, Meta) 
-            {
-              if (buffer) 
-              {
-                buffer = new Uint8Array(buffer);
-              };
+			};
+			
+		  }
+		  else
+		  {
+			decoder.onPictureDecoded = function (buffer, width, height, Meta) 
+			{
+			  if (buffer) 
+			  {
+				buffer = new Uint8Array(buffer);
+			  };
 
-              // buffer needs to be copied because we give up ownership
-              var copyU8 = new Uint8Array(buffer.length);
-              copyU8.set( buffer, 0, buffer.length );
+			  // buffer needs to be copied because we give up ownership
+			  var copyU8 = new Uint8Array(buffer.length);
+			  copyU8.set( buffer, 0, buffer.length );
 
-              postMessage({
-                buf: copyU8.buffer, 
-                length: buffer.length,
-                width: width, 
-                height: height, 
-                infos: Meta
-              }, [copyU8.buffer]); // 2nd parameter is used to indicate transfer of ownership
+			  postMessage({
+				buf: copyU8.buffer, 
+				length: buffer.length,
+				width: width, 
+				height: height, 
+				infos: Meta
+			  }, [copyU8.buffer]); // 2nd parameter is used to indicate transfer of ownership
 
-            };
-          };
-          postMessage({ consoleLog: "broadway worker initialized" });
-        };
-      };
+			};
+		  };
+		  postMessage({ consoleLog: "broadway worker initialized" });
+		};
+	  };
 
 
-    };
-      
+	};
+	  
 	self.addEventListener('message', OnWorkerMessage, false);
-  };
-  
-  Decoder.GetNowValue = GetNowValue;
-  
-  return Decoder;
-  
-  })();
-  
-  
+	};
+
+	Decoder.GetNowValue = GetNowValue;
+
+	return Decoder;
+
+	})();
+
+
 }));
 

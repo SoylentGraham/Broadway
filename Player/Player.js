@@ -40,7 +40,7 @@ p.decode(<binary>);
   "use strict";
   
   
-  var nowValue = Decoder.nowValue;
+  var GetNowValue = Decoder.GetNowValue;
   
   
   var Player = function(parOptions){
@@ -52,7 +52,7 @@ p.decode(<binary>);
       this.render = false;
     };
     
-    this.nowValue = nowValue;
+    this.GetNowValue = GetNowValue;
     
     this._config.workerFile = this._config.workerFile || "Decoder.js";
     if (this._config.preserveDrawingBuffer){
@@ -103,7 +103,7 @@ p.decode(<binary>);
     var onPictureDecoded = function(buffer, width, height, infos) {
       self.onPictureDecoded(buffer, width, height, infos);
       
-      var startTime = nowValue();
+      var startTime = GetNowValue();
       
       if (!buffer || !self.render) {
         return;
